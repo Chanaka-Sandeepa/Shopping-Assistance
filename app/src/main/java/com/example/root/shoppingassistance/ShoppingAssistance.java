@@ -1,0 +1,128 @@
+package com.example.root.shoppingassistance;
+
+import android.content.Intent;
+import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.Locale;
+
+public class ShoppingAssistance extends AppCompatActivity implements TextToSpeech.OnInitListener {
+
+    DatabaseConnector dbCon;
+
+    private TextToSpeech tts;
+    private Button btnSpeak;
+    private EditText txtq;
+    private EditText txta;
+    String startText = "What are you looking for ?";
+    private ArrayList<String> itemAttribs;
+
+    public ShoppingAssistance(){
+        dbCon=DatabaseConnector.getInstance(this);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_shopping_assistance);
+
+        tts = new TextToSpeech(this, this);
+
+        txtq = (EditText) findViewById(R.id.txtQ);
+        txta = (EditText) findViewById(R.id.txtA);
+
+        // Refer 'Speak' button
+        btnSpeak = (Button) findViewById(R.id.btnSpeak);
+        // Handle onClick event for button 'Speak'
+        btnSpeak.setOnClickListener(new View.OnClickListener() {
+
+            public void onClick(View arg0) {
+                // Method yet to be defined
+                speakOut(startText);
+            }
+
+        });
+    }
+
+    //method to speak
+    private void speakOut(String text) {
+        txtq.setText(startText);
+        if (startText.length() == 0) {
+            txtq.setText(startText);
+            tts.speak("You haven't typed text", TextToSpeech.QUEUE_FLUSH, null);
+        } else {
+            tts.speak(startText, TextToSpeech.QUEUE_FLUSH, null);
+            getSpeechInput();
+        }
+
+    }
+
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            // Setting speech language
+            int result = tts.setLanguage(Locale.US);
+            // If your device doesn't support language you set above
+            if (result == TextToSpeech.LANG_MISSING_DATA
+                    || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                // Cook simple toast message with message
+                Toast.makeText(getApplicationContext(), "Language not supported",
+                        Toast.LENGTH_LONG).show();
+                Log.e("TTS", "Language is not supported");
+            }
+            // Enable the button - It was disabled in main.xml (Go back and
+            // Check it)
+            else {
+                btnSpeak.setEnabled(true);
+            }
+            // TTS is not initialized properly
+        } else {
+            Toast.makeText(this, "TTS Initilization Failed", Toast.LENGTH_LONG)
+                    .show();
+            Log.e("TTS", "Initilization Failed");
+        }
+    }
+
+    //method to listen
+    public void getSpeechInput (){
+
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+
+        if(intent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(intent, 10);
+        }else{
+            Toast.makeText(this, "Not Supported!", Toast.LENGTH_SHORT).show();
+        }
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch (requestCode) {
+            case 10:
+                if (resultCode == RESULT_OK && data != null) {
+                    ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    txta.setText(result.get(0));
+                    continueChat(result.get(0));
+                }
+                break;
+        }
+    }
+
+    public void continueChat(String s){
+        itemAttribs = dbCon.getItemAttribs(s);
+        Log.e("res", itemAttribs.get(0));
+    }
+}
